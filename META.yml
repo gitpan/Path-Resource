@@ -1,0 +1,26 @@
+---
+name: Path-Resource
+version: 0.01_1
+author:
+  - 'Robert Krimen <robertkrimen@gmail.com>'
+abstract: URI/Path::Class combination.
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+requires:
+  Class::Accessor: 0
+  Path::Class: 0
+  URI: 0
+  URI::URL: 0
+build_requires:
+  Test::More: 0
+provides:
+  Archie::Path::Resource:
+    file: lib/Path/Resource.pm
+  Path::Resource:
+    file: lib/Path/Resource.pm
+    version: 0.01_1
+generated_by: Module::Build version 0.28
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2
