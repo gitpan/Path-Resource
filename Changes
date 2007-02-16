@@ -1,1 +1,6 @@
---
+---
+ - [ 2007-02-16, 0.01_2 ]
+ - Some documentation coverage. Fully functional with tests.
+
+ - [2007-02, 0.01_1 ]
+ - Initial release, initial interface.

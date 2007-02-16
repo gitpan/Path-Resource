@@ -1,6 +1,6 @@
 ---
 name: Path-Resource
-version: 0.01_1
+version: 0.01_2
 author:
   - 'Robert Krimen <robertkrimen@gmail.com>'
 abstract: URI/Path::Class combination.
@@ -19,7 +19,7 @@ provides:
     file: lib/Path/Resource.pm
   Path::Resource:
     file: lib/Path/Resource.pm
-    version: 0.01_1
+    version: 0.01_2
 generated_by: Module::Build version 0.28
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
