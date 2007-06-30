@@ -7,9 +7,10 @@ WriteMakefile
           'PREREQ_PM' => {
                            'Class::Accessor' => '0',
                            'Path::Class' => '0',
+                           'Path::Lite' => '0',
+                           'Scalar::Util' => '0',
                            'Test::More' => '0',
-                           'URI' => '0',
-                           'URI::URL' => '0'
+                           'URI' => '0'
                          },
           'INSTALLDIRS' => 'site',
           'EXE_FILES' => [],

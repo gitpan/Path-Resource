@@ -9,19 +9,7 @@ Path::Resource - URI/Path::Class combination.
 
 =head1 VERSION
 
-Version 0.01_2
-
-=cut
-
-our $VERSION = '0.01_2';
-
-use URI::URL;
-use URI::Split qw(uri_split uri_join);
-use Path::Class();
-use Carp;
-use Scalar::Util qw(blessed);
-use base qw(Class::Accessor);
-__PACKAGE__->mk_accessors(qw(path base_file base_dir base_loc base_uri));
+Version 0.03
 
 =head1 SYNOPSIS
 
@@ -29,214 +17,154 @@ __PACKAGE__->mk_accessors(qw(path base_file base_dir base_loc base_uri));
 
   # Map a resource on the local disk to a URI.
   # Its (disk) directory is "/var/dir" and its uri is "http://hostname/loc"
-  my $rsc = new Path::Resource dir => "/var/dir", uri => [ "http://hostname", "loc" ];
+  my $rsc = new Path::Resource dir => "/var/dir", uri => "http://hostname/loc";
   # uri: http://hostname/loc 
   # dir: /var/dir
 
-  my $subrsc = $rsc->subdir("subdir");
-  # uri: http://hostname/loc/subdir
-  # dir: /var/dir/subdir
+  my $apple_rsc = $rsc->child("apple");
+  # uri: http://hostname/loc/apple
+  # dir: /var/dir/apple
 
-  my $filersc = $rsc->subfile("info.txt");
-  # uri: http://hostname/loc/subdir/info.txt
-  # file: /var/dir/subdir/info.txt
+  my $banana_txt_rsc = $apple_rsc->child("banana.txt");
+  # uri: http://hostname/loc/apple/banana.txt
+  # file: /var/dir/apple/banana.txt
 
-  my $filesize = -s $filersc->file;
+  my $size = -s $banana_txt_rsc->file;
 
-  redirect($filersc->uri);
+  redirect($banana_txt_rsc->uri);
 
-=head1 METHODS
+=cut
+
+our $VERSION = '0.03';
+
+use Path::Class();
+use Path::Resource::Base();
+use Path::Lite;
+use Scalar::Util qw(blessed);
+use Carp;
+use base qw/Class::Accessor/;
+__PACKAGE__->mk_accessors(qw(path base));
 
 =over 4
 
-=item $rsc = Path::Resource->new( ... );
-
-=item $rsc = Path::Resource->new( uri => <uri> dir => <dir>, ... );
-
-Returns a new C<Path::Resource> object. A resource can either be a file resource
-or a directory resource.
-
-The constructor accepts the following:
-
-=over 4
-  
-uri => C<URI>. The base uri of the resource. This can be or will become a C<URI> object. This can also be a uri-like string, e.g. "http://example.com/..."
-
-uri => [ C<URI>, <loc> ]. The base uri of the resource. This option will set C<uri> and C<loc> at the same time. For example, if you pass C<uri => [ "http://example.com", "/loc" ]>, then the final uri will be C<http://example.com/loc> and the final loc will be C</loc>.
-
-dir => The base dir of the resource. This can be or will become a C<Path::Class::Dir> object.
-
-file => The file of the resource. This can be or will become a C<Path::Class::File> object.
-
-path => The starting path of the resource, relative to dir and uri. Adding path to the base uri/base dir will yield the actual uri/dir.
-
-=back
-
-Note: Passing the file object will mark the resource as being a file resource object (You can't subdir or subfile a file resource.
+=item Path::Resource->new
 
 =cut
 
 sub new {
 	my $self = bless {}, shift;
 	local %_ = @_;
-	my ($path, $file, $dir, $loc, $uri);
+	my $dir = $_{dir};
+	my $file = $_{file};
+	my $path = $_{path};
+	my $loc = $_{loc};
+	my $uri = $_{uri};
 
-	$path = defined $_{path} ? $_{path} : "";
-	$path = Path::Class::dir $path;
-
-	$dir = defined $_{dir} ? $_{dir} : "";
-	$dir = Path::Class::dir $dir;
-
-	if ($_{file}) {
-		$file = $_{file};
-		$path = Path::Class::file $path;
+	my $base;
+	if ($base = $_{base}) {
 	}
 	else {
-		$path = Path::Class::dir $path;
-	}
+		if ($dir && $file && $path) {
+			croak "Can't initialize a dir ($dir), a file ($file), and a path ($path) at the same time"
+		}
+		elsif ($dir && $file) {
+			$dir = Path::Class::dir($dir) unless blessed $dir && $dir->isa("Path::Class::Dir");
+			$file = Path::Class::file($file) unless blessed $file && $file->isa("Path::Class::File");
+			croak "Can't initialize since dir ($dir) does not contain file ($file) unless $dir->subsumes($file)";
+			$path = $file->relative($dir);
+		}
+		elsif ($dir) {
+			$dir = Path::Class::dir($dir) unless blessed $dir && $dir->isa("Path::Class::Dir");
+		}
+		elsif ($file) {
+			$dir = Path::Class::dir('/');
+		}
+		else {
+			$dir = Path::Class::dir('/');
+		}
 
-	$uri = $_{uri};
-	if (ref $uri eq "ARRAY") {
-		($uri, $loc) = @$uri;
-		$uri = new URI::URL($uri) unless blessed $uri;
-	        my ($scheme, $auth, $path, $query, $frag) = uri_split($uri);
-		$path = Path::Class::dir $path, $loc;
-	        $uri = uri_join($scheme, $auth, $path, $query, $frag);
-		$uri = URI::URL->new($uri);
+        	$base = new Path::Resource::Base(dir => $dir, uri => $uri, loc => $loc);
 	}
-	else {
-		$uri = $_{uri};
-		$uri = new URI::URL($uri) unless blessed $uri;
-	}
+	$self->base($base);
 
-	if ($_{loc} || ! $loc) {
-		$loc = defined $_{loc} ? $_{loc} : "";
-	}
-	$loc = Path::Class::dir $loc;
-
+        $path = new Path::Lite($path) unless blessed $path && $path->isa("Path::Lite");
 	$self->path($path);
-	$self->base_file($file);
-	$self->base_dir($dir);
-	$self->base_loc($loc);
-	$self->base_uri($uri);
 
 	return $self;
 }
 
-=item $rsc->is_file
-
-Returns true if the $rsc maps to a file, false otherwise.
-
-=cut 
-
-sub is_file { return ! shift->path->is_dir }
-
-=item $rsc->is_dir
-
-Returns true if the $rsc maps to a directory, false otherwise.
-
-=cut
-
-sub is_dir { return shift->path->is_dir }
-
-=item $clonersc = $rsc->clone 
-
-=item $clonersc = $rsc->clone(path => <path>, ...);
-
-Returns a new C<Path::Resource> object that is a clone of $rsc; optionally changing any path
-file, dir, loc, or uri components.
-
-=cut
-
-sub clone {
-	my $self = shift;
-	my $path = shift || $self->path;
-	local %_ = @_;
-	my $rsc = __PACKAGE__->new(path => $path,
-		file => exists $_{file} ? $_{file} : $self->base_file,
-		dir => exists $_{dir} ? $_{dir} : $self->base_dir,
-		loc => exists $_{loc} ? $_{loc} : $self->base_loc,
-		uri => exists $_{uri} ? $_{uri} : $self->base_uri);
-	return $rsc;
-}
-
-=item $subrsc = $rsc->subdir( <dir1>, <dir2>, ... )
-
-Returns a new C<Path::Resource> object representing a subdirectory resource of $rsc.
-
-=cut
-
-sub subdir {
-	my $self = shift;
-	croak "Not a dir" unless $self->is_dir;
-	return $self->clone($self->path->subdir(@_));
-}
-
-=item $subfile = $rsc->subfile( <dir1>, <dir2>, ..., <file> )
-
-=cut
-
-sub subfile {
-	my $self = shift;
-	croak "Not a dir" unless $self->is_dir;
-	my $file = $self->dir->file(@_);
-	my $path = $self->path->file(@_);
-	return $self->clone($path, file => $file);
-}
-
-=item $parentrsc = $rsc->parent
-
-=cut
-
-sub parent {
-	my $self = shift;
-	return $self->clone($self->path->parent, file => undef);
-}
-
-=item $dir = $rsc->dir
-
-=cut
-
-sub dir {
-	my $self = shift;
-	croak "Not a dir resource" unless $self->is_dir;
-	return $self->base_dir->subdir($self->path, @_);
-}
-
-=item $file = $rsc->file
+=item $rsc->file
 
 =cut
 
 sub file {
 	my $self = shift;
-	return $self->base_file if $self->is_file;
-	croak "Not a file" unless @_;
-	return $self->base_dir->file($self->path, @_);
+	return $self->base->dir->file($self->path->get, @_);
 }
 
-=item $loc = $rsc->loc
+=item $rsc->dir
+
+=cut
+
+sub dir {
+	my $self = shift;
+	return $self->base->dir->subdir($self->path->get, @_);
+}
+
+=item $rsc->clone
+
+=cut
+
+sub clone {
+	my $self = shift;
+	my $path = shift || $self->path->clone;
+	return __PACKAGE__->new(base => $self->base->clone, path => $path);
+}
+
+=item $rsc->child
+
+=cut
+
+sub child {
+	my $self = shift;
+	my $clone = $self->clone($self->path->child(@_));
+	return $clone;
+}
+
+=item $rsc->parent
+
+=cut
+
+sub parent {
+	my $self = shift;
+	my $clone = $self->clone($self->path->parent);
+	return $clone;
+}
+
+=item $rsc->loc
 
 =cut
 
 sub loc {
 	my $self = shift;
-	return $self->base_loc->subdir($self->path, @_);
+	return $self->base->loc->child($self->path, @_);
 }
 
 
-=item $uri = $rsc->uri
+=item $rsc->uri
 
 =cut
 
 sub uri {
 	my $self = shift;
-	my $path = @_ ? $self->path->subdir(@_) : $self->path;
-	$path = Path::Class::dir $self->base_uri->path, $path;
-	$path = $path->relative('/');
-        my ($scheme, $auth, undef, $query, $frag) = uri_split($self->base_uri);
-        my $uri = uri_join($scheme, $auth, $path, $query, $frag);
-	return URI::URL->new($uri);
+	my $uri = $self->base->uri->clone;
+	$uri->path($self->loc(@_)->get);
+	return $uri;
 }
+
+=item $rsc->path
+
+=item $rsc->base
 
 =back 
 
@@ -292,127 +220,3 @@ under the same terms as Perl itself.
 =cut
 
 1; # End of Path::Resource
-
-__END__
-
-package Archie::Path::Resource;
-
-use strict;
-
-use Archie::Utility;
-use URI::URL;
-use Path::Class();
-use base qw(Class::Accessor);
-__PACKAGE__->mk_accessors(qw(path dir_base loc_base http_uri_base));
-
-sub new {
-	my $self = bless {}, shift;
-	$self->path(Path::Class::dir(shift || ""));
-	local %_ = @_;
-	$self->dir_base($_{dir_base});
-	$self->loc_base($_{loc_base});
-	$self->http_uri_base($_{http_uri_base});
-	return $self;
-}
-
-sub clone {
-	my $self = shift;
-	my $path = shift || $self->path;
-	my $rsc = __PACKAGE__->new($path, dir_base => $self->dir_base,
-		loc_base => $self->loc_base, http_uri_base => $self->http_uri_base);
-	return $rsc;
-}
-
-sub subdir {
-	my $self = shift;
-	return $self->clone($self->path->subdir(@_));
-}
-
-sub parent {
-	my $self = shift;
-	return $self->clone($self->path->parent);
-}
-
-sub dir {
-	my $self = shift;
-	return $self->dir_base->subdir($self->path, @_);
-}
-
-sub file {
-	my $self = shift;
-	return $self->dir_base->file($self->path, @_);
-}
-
-sub loc {
-	my $self = shift;
-	return $self->loc_base->subdir($self->path, @_);
-}
-
-sub http_uri {
-	my $self = shift;
-	return $self->http_uri_base->clone unless @_;
-	my $path = @_ ? $self->path->subdir(@_) : $self->path;
-	$path = Path::Class::dir $self->http_uri_base->base->path, $path;
-	$path = $path->relative('/');
-	return URI::URL->new($path->stringify, $self->http_uri_base->abs);
-}
-
-sub http_loc {
-	my $self = shift;
-	return $self->http_uri(@_)->abs->as_string;
-}
-
-1;
-
-__END__
-
-sub new {
-	my $self = bless {}, shift;
-	$self->archie(shift);
-#	my ($path, $trail, $base) = @_;
-	my ($trail, $path) = @_;
-	if (ref $trail eq "File::VirtualPath") {
-		$self->virtual($trail);
-	}
-	elsif (ref $trail eq __PACKAGE__) {
-		return $trail;
-	}
-	else {
-		($trail, $path) = @$trail if ref $trail eq "ARRAY";
-		$path = $self->archie->path unless $path;
-		$self->virtual(new File::VirtualPath($path, undef, undef, $trail));
-	}
-	return $self;
-}
-
-sub trail {
-	my $self = shift;
-	return @_ ? $self->virtual->child_path_string(@_) : $self->virtual->path_string;
-}
-
-sub path {
-	my $self = shift;
-	return @_ ? $self->virtual->physical_child_path_string(@_) : $self->virtual->physical_path_string;
-}
-
-sub location {
-	my $self = shift;
-	return $self->archie->location($self->trail(@_));
-}
-
-sub httplocation {
-	my $self = shift;
-	return $self->archie->httplocation($self->trail(@_));
-}
-
-sub child {
-	my $self = shift;
-	return __PACKAGE__->new($self->archie, $self->virtual->child_path_obj(@_));
-}
-
-sub toJson {
-	my $self = shift;
-	return inspect { trail => $self->trail, path => $self->path };
-}
-
-1;
