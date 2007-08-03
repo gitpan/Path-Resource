@@ -12,7 +12,7 @@ my $builder = Module::Build->new(
     },
     requires => {
     	'Path::Class' => 0,
-    	'Path::Lite' => 0,
+    	'Path::Abstract' => 0,
     	'Scalar::Util' => 0,
     	'URI' => 0,
     	'Class::Accessor' => 0,

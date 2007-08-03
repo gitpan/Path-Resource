@@ -1,5 +1,8 @@
+0.04 Monday July 30 11:29:31 PDT 2007:
+ - Only prepend path in file/dir/loc if it is non-empty
+
 0.03 Tuesday June 26 20:02:47 PDT 2007:
- - Rewrite using Path::Lite
+ - Rewrite using Path::Abstract
 
 0.01_4 2007-4-27:
  - More documentation

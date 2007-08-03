@@ -9,7 +9,7 @@ Path::Resource::Base - A resource base for a Path::Resource object
 
 =cut
 
-use Path::Lite;
+use Path::Abstract;
 use Path::Class();
 use Scalar::Util qw(blessed);
 use URI;
@@ -26,17 +26,28 @@ __PACKAGE__->mk_accessors(qw(dir loc uri));
 sub new {
 	my $self = bless {}, shift;
 	local %_ = @_;
+
 	my $dir = $_{dir};
 	$dir = Path::Class::dir($dir) unless blessed $dir && $dir->isa("Path::Class::Dir");
-	my $loc = $_{loc};
-	$loc = new Path::Lite($loc) unless blessed $loc && $loc->isa("Path::Lite");
+
 	my $uri = $_{uri};
-	$uri = new URI($uri) unless blessed $uri && $uri->isa("URI");
+	$uri = URI->new($uri) unless blessed $uri && $uri->isa("URI");
 	my $uri_path = $uri->path;
+	$uri_path = "/" unless length $uri_path;
 	$uri->path('');
-	if ($uri_path && $loc->branch) {
-		$loc = new Path::Lite($uri_path, $loc->path);
+
+	my $loc;
+	if (defined $_{loc}) {
+		$loc = $_{loc};
+		$loc = Path::Abstract->new($loc) unless blessed $loc && $loc->isa("Path::Abstract");
+		if ($uri_path && $loc->is_branch) {
+			$loc = Path::Abstract->new($uri_path, $loc->path);
+		}
 	}
+	else {
+		$loc = Path::Abstract->new($uri_path);
+	}
+
 	$self->dir($dir);
 	$self->loc($loc);
 	$self->uri($uri);

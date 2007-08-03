@@ -9,7 +9,7 @@ Path::Resource - URI/Path::Class combination.
 
 =head1 VERSION
 
-Version 0.03
+Version 0.04
 
 =head1 SYNOPSIS
 
@@ -35,11 +35,11 @@ Version 0.03
 
 =cut
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use Path::Class();
 use Path::Resource::Base();
-use Path::Lite;
+use Path::Abstract;
 use Scalar::Util qw(blessed);
 use Carp;
 use base qw/Class::Accessor/;
@@ -87,7 +87,7 @@ sub new {
 	}
 	$self->base($base);
 
-        $path = new Path::Lite($path) unless blessed $path && $path->isa("Path::Lite");
+        $path = Path::Abstract->new($path) unless blessed $path && $path->isa("Path::Abstract");
 	$self->path($path);
 
 	return $self;
@@ -99,7 +99,8 @@ sub new {
 
 sub file {
 	my $self = shift;
-	return $self->base->dir->file($self->path->get, @_);
+	unshift @_, $self->path->get unless $self->path->is_empty;
+	return $self->base->dir->file(@_);
 }
 
 =item $rsc->dir
@@ -108,7 +109,8 @@ sub file {
 
 sub dir {
 	my $self = shift;
-	return $self->base->dir->subdir($self->path->get, @_);
+	unshift @_, $self->path->get unless $self->path->is_empty;
+	return $self->base->dir->subdir(@_);
 }
 
 =item $rsc->clone
@@ -147,7 +149,8 @@ sub parent {
 
 sub loc {
 	my $self = shift;
-	return $self->base->loc->child($self->path, @_);
+	unshift @_, $self->path unless $self->path->is_empty;
+	return $self->base->loc->child(@_);
 }
 
 
