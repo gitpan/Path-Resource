@@ -1,5 +1,5 @@
 ---
-abstract: 'URI/Path::Class combination.'
+abstract: 'URI/Path::Class combination'
 author:
   - 'Robert Krimen <rkrimen@cpan.org>'
 build_requires:
@@ -24,4 +24,4 @@ requires:
 resources:
   license: http://dev.perl.org/licenses/
   repository: http://github.com/robertkrimen/path-resource/tree/master
-version: 0.071
+version: 0.072

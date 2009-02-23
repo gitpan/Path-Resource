@@ -1,8 +1,8 @@
 NAME
-    Path::Resource - URI/Path::Class combination.
+    Path::Resource - URI/Path::Class combination
 
 VERSION
-    Version 0.071
+    Version 0.072
 
 SYNOPSIS
       use Path::Resource;
